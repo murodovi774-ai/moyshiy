@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ShieldCheck } from "lucide-react";
 
 export default function IntroVideo() {
   const [phase, setPhase] = useState<"hidden" | "video" | "glass" | "dissolving">("hidden");
@@ -23,10 +23,10 @@ export default function IntroVideo() {
     const hasSeen = localStorage.getItem("intro_seen");
     if (!hasSeen) {
       setPhase("video");
-      // Safety fallback: if video stalls for over 12 seconds, switch to glass
+      // On mobile, transition from brand video/intro to dirty glass after 2.5s
       const timer = setTimeout(() => {
         setPhase((current) => (current === "video" ? "glass" : current));
-      }, 12000);
+      }, isMobile ? 2500 : 5500);
       return () => clearTimeout(timer);
     }
 
@@ -36,9 +36,9 @@ export default function IntroVideo() {
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
-  }, []);
+  }, [isMobile]);
 
-  // Web Audio API Synthesizers (Subtle Wipe Friction Sound & Completion Chime)
+  // Web Audio API Synthesizers
   const playWipeSound = () => {
     try {
       if (!audioCtxRef.current) {
@@ -103,7 +103,7 @@ export default function IntroVideo() {
     setPhase("glass");
   };
 
-  // Render Light Realistic House Window Glass Texture (NO DARK PITCH BACKDROP)
+  // Render Light Realistic House Window Glass Texture
   useEffect(() => {
     if (phase !== "glass" || !canvasRef.current) return;
 
@@ -115,11 +115,9 @@ export default function IntroVideo() {
     const height = (canvas.height = window.innerHeight);
 
     const drawRealisticDirtyGlass = () => {
-      // 1. Light house window ambient tint (Transparent & realistic)
       ctx.fillStyle = "rgba(220, 232, 245, 0.42)";
       ctx.fillRect(0, 0, width, height);
 
-      // 2. Dirt accumulation near window edges
       const edgeGrad = ctx.createRadialGradient(
         width / 2,
         height / 2,
@@ -133,8 +131,7 @@ export default function IntroVideo() {
       ctx.fillStyle = edgeGrad;
       ctx.fillRect(0, 0, width, height);
 
-      // 3. Dense Dust Texture (Lighter count on mobile for 60 FPS)
-      const dustCount = isMobile ? 350 : 1100;
+      const dustCount = isMobile ? 300 : 1100;
       ctx.fillStyle = "rgba(160, 150, 135, 0.38)";
       for (let i = 0; i < dustCount; i++) {
         const dx = Math.random() * width;
@@ -145,8 +142,7 @@ export default function IntroVideo() {
         ctx.fill();
       }
 
-      // 4. Fingerprints & Grease Smudges
-      const smudgeCount = isMobile ? 18 : 40;
+      const smudgeCount = isMobile ? 15 : 40;
       for (let i = 0; i < smudgeCount; i++) {
         const fx = Math.random() * width;
         const fy = Math.random() * height;
@@ -162,27 +158,12 @@ export default function IntroVideo() {
         ctx.arc(fx, fy, fr, 0, Math.PI * 2);
         ctx.fill();
       }
-
-      // 5. Water Spots & Dried Rain Streaks
-      const streakCount = isMobile ? 20 : 45;
-      ctx.strokeStyle = "rgba(190, 185, 175, 0.25)";
-      ctx.lineWidth = 1.6;
-      for (let i = 0; i < streakCount; i++) {
-        const sx = Math.random() * width;
-        const sy = Math.random() * height;
-        const len = Math.random() * 60 + 20;
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(sx + (Math.random() * 6 - 3), sy + len);
-        ctx.stroke();
-      }
     };
 
     drawRealisticDirtyGlass();
 
-    const brushRadius = isMobile ? 120 : 95;
+    const brushRadius = isMobile ? 110 : 95;
 
-    // Erase dirt texture with soft feathered edge radial brush
     const eraseCircleAt = (x: number, y: number) => {
       ctx.globalCompositeOperation = "destination-out";
       const grad = ctx.createRadialGradient(x, y, 0, x, y, brushRadius);
@@ -207,10 +188,9 @@ export default function IntroVideo() {
       }
     };
 
-    // Fast 60 FPS Real Cleaned Surface Area Calculation
     const calculateRealCleanedArea = () => {
-      const gridCols = isMobile ? 20 : 40;
-      const gridRows = isMobile ? 25 : 30;
+      const gridCols = isMobile ? 18 : 40;
+      const gridRows = isMobile ? 22 : 30;
       const colStep = Math.floor(width / gridCols);
       const rowStep = Math.floor(height / gridRows);
       
@@ -313,7 +293,6 @@ export default function IntroVideo() {
     };
   }, [phase, isMobile]);
 
-  // 80% Threshold Evaporation & Unlock Chime
   const triggerEvaporation = () => {
     setPhase("dissolving");
     localStorage.setItem("intro_seen", "true");
@@ -348,11 +327,10 @@ export default function IntroVideo() {
 
   const clothCursorSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="rotate(${clothAngle} 24 24) scale(${isDragging ? 1.15 : 1})"><rect x="8" y="10" width="32" height="28" rx="7" fill="%230284C7" fill-opacity="0.9" stroke="%23FFFFFF" stroke-width="2.5" stroke-dasharray="3 3"/><circle cx="24" cy="24" r="8" fill="%2338BDF8"/></g></svg>`;
 
-  // Dynamic filter calculating brightness, contrast, saturation, blur as glass is wiped
-  const brightness = 50 + (wipePercent * 0.5); // 50% -> 100%
-  const contrast = 75 + (wipePercent * 0.25); // 75% -> 100%
-  const saturation = 60 + (wipePercent * 0.4); // 60% -> 100%
-  const blur = Math.max(0, 8 - (wipePercent * 0.1)); // 8px -> 0px
+  const brightness = 50 + (wipePercent * 0.5);
+  const contrast = 75 + (wipePercent * 0.25);
+  const saturation = 60 + (wipePercent * 0.4);
+  const blur = Math.max(0, 8 - (wipePercent * 0.1));
 
   return (
     <AnimatePresence>
@@ -371,22 +349,49 @@ export default function IntroVideo() {
             backdropFilter: phase === "glass" ? `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) blur(${blur}px)` : "none",
           }}
         >
-          {/* Phase 1: Video Playback with iOS Safari Autoplay Attributes */}
+          {/* Phase 1: Desktop Video vs Mobile Animated Intro */}
           {phase === "video" && (
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              playsInline
-              preload="auto"
-              // @ts-ignore
-              webkit-playsinline="true"
-              onEnded={handleVideoEnded}
-              onError={handleVideoEnded}
-              className="absolute inset-0 w-full h-full object-cover"
-            >
-              <source src="/intro.mp4" type="video/mp4" />
-            </video>
+            isMobile ? (
+              /* Ultra-Sleek Mobile Brand Intro (100% Mobile Ratio Fit) */
+              <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center p-6 text-white text-center">
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
+                  transition={{ duration: 1.2, ease: "easeOut" }}
+                  className="space-y-4 max-w-xs"
+                >
+                  <div className="w-16 h-16 rounded-3xl bg-primary text-white flex items-center justify-center font-black text-3xl mx-auto shadow-2xl shadow-primary/50">
+                    T
+                  </div>
+                  <h2 className="text-3xl font-black tracking-tight">
+                    TozaUy<span className="text-primary font-bold">.uz</span>
+                  </h2>
+                  <p className="text-xs text-gray-300 font-medium">
+                    Premium tozalash va maishiy vositalar platformasi
+                  </p>
+                  <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-1.5 rounded-full text-[11px] text-cyan-300 font-bold border border-white/15">
+                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                    <span>Tozalik sari qadam</span>
+                  </div>
+                </motion.div>
+              </div>
+            ) : (
+              /* Desktop Video Playback */
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                preload="auto"
+                // @ts-ignore
+                webkit-playsinline="true"
+                onEnded={handleVideoEnded}
+                onError={handleVideoEnded}
+                className="absolute inset-0 w-full h-full object-cover"
+              >
+                <source src="/intro.mp4" type="video/mp4" />
+              </video>
+            )
           )}
 
           {/* Phase 2: Ultra Realistic Dirty Glass Surface & Responsive Top/Center Glass Card */}
