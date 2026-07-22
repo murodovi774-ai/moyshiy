@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import CategorySidebar from "@/components/category/CategorySidebar";
 import CategoryHeader from "@/components/category/CategoryHeader";
 import ProductCard, { Product } from "@/components/shared/ProductCard";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useTranslations } from "next-intl";
 
@@ -21,25 +21,27 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
   const supabase = createClient();
   const [slug, setSlug] = useState("");
 
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [priceRange, setPriceRange] = useState(1000000);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+
   useEffect(() => {
     Promise.resolve(params).then((p) => {
       setSlug(p.slug);
+      setSelectedCategory(p.slug || "all");
     });
   }, [params]);
 
   useEffect(() => {
     async function fetchProducts() {
-      if (!slug) return;
       setIsLoading(true);
       
-      let query = supabase.from("products").select("*, categories(name, slug), brands(name)").order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from("products")
+        .select("*, categories(name, slug), brands(name)")
+        .order("created_at", { ascending: false });
 
-      if (slug !== "all") {
-        query = query.eq("categories.slug", slug);
-      }
-
-      const { data, error } = await query;
-      
       if (!error && data) {
         setProducts(data as any);
       }
@@ -47,7 +49,37 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
     }
 
     fetchProducts();
-  }, [slug, supabase]);
+  }, [supabase]);
+
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setPriceRange(1000000);
+    setSelectedCategory(slug || "all");
+  };
+
+  // Compute Filtered & Sorted Products
+  const filteredProducts = useMemo(() => {
+    return products.filter((item) => {
+      // 1. Search Query Filter
+      if (searchQuery.trim()) {
+        const matchesName = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesDesc = item.description?.toLowerCase().includes(searchQuery.toLowerCase());
+        if (!matchesName && !matchesDesc) return false;
+      }
+
+      // 2. Category Filter
+      if (selectedCategory && selectedCategory !== "all") {
+        if (item.categories?.slug !== selectedCategory) return false;
+      }
+
+      // 3. Max Price Filter
+      if (item.price > priceRange) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [products, searchQuery, selectedCategory, priceRange]);
 
   const categoryNameMap: Record<string, string> = {
     "kir-yuvish": "Kir yuvish vositalari",
@@ -58,24 +90,32 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
     "all": "Barcha Katalog"
   };
 
-  const categoryTitle = categoryNameMap[slug] || slug || "Katalog";
+  const categoryTitle = categoryNameMap[selectedCategory] || categoryNameMap[slug] || "Katalog";
 
   return (
     <div className="flex flex-col w-full min-h-screen bg-white pt-24 md:pt-32">
       <div className="container mx-auto px-4 md:px-6 mb-16">
         
         {/* Category Banner */}
-        <CategoryBanner slug={slug} categoryName={categoryTitle} />
+        <CategoryBanner slug={selectedCategory !== "all" ? selectedCategory : slug} categoryName={categoryTitle} />
 
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Desktop Sidebar */}
-          <CategorySidebar />
+          <CategorySidebar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            priceRange={priceRange}
+            setPriceRange={setPriceRange}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
+            onResetFilters={handleResetFilters}
+          />
 
           {/* Main Content */}
           <div className="flex-1 min-w-0">
             <CategoryHeader 
               title={categoryTitle}
-              totalProducts={products.length}
+              totalProducts={filteredProducts.length}
               onOpenMobileFilters={() => setMobileFiltersOpen(true)}
               viewMode={viewMode}
               setViewMode={setViewMode}
@@ -83,7 +123,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
 
             {isLoading ? (
               <ProductSkeleton count={6} />
-            ) : products.length > 0 ? (
+            ) : filteredProducts.length > 0 ? (
               <>
                 {/* Product Grid */}
                 <div className={`grid gap-4 md:gap-6 ${
@@ -91,12 +131,12 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
                     ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4" 
                     : "grid-cols-1"
                 }`}>
-                  {products.map((product, index) => (
+                  {filteredProducts.map((product, index) => (
                     <ProductCard key={product.id} product={product} index={index} />
                   ))}
                 </div>
                 
-                {/* Pagination (Visual only for now) */}
+                {/* Pagination */}
                 <div className="flex items-center justify-center gap-2 mt-16 pt-8 border-t border-border">
                   <button className="w-10 h-10 flex items-center justify-center rounded-full border border-border hover:border-primary hover:text-primary transition-all disabled:opacity-50">
                     <ChevronLeft className="w-5 h-5" />
@@ -109,19 +149,19 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
               </>
             ) : (
               /* Beautiful Empty State */
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-24 h-24 bg-muted/50 rounded-full flex items-center justify-center mb-6">
-                  <span className="text-4xl">🍃</span>
+              <div className="flex flex-col items-center justify-center py-20 text-center bg-muted/10 rounded-[32px] border border-dashed border-border/60">
+                <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-4 text-primary">
+                  <span className="text-3xl">🍃</span>
                 </div>
-                <h3 className="text-2xl font-bold mb-2">{t("noProducts")}</h3>
-                <p className="text-muted-foreground max-w-md">
-                  {t("noProductsDesc")}
+                <h3 className="text-xl font-bold mb-2 text-foreground">Afsuski, mahsulot topilmadi</h3>
+                <p className="text-muted-foreground max-w-md text-sm mb-6">
+                  Kiritilgan qidiruv yoki narx oralig'i bo'yicha tovar mavjud emas. Filtrlarni tozalab qayta urinib ko'ring.
                 </p>
                 <button 
-                  onClick={() => {}}
-                  className="mt-8 bg-foreground text-background px-8 py-3 rounded-full font-bold hover:bg-foreground/80 transition-all touch-target"
+                  onClick={handleResetFilters}
+                  className="bg-primary text-white px-8 py-3 rounded-full font-bold hover:bg-primary/90 transition-all shadow-md touch-target"
                 >
-                  {t("clearFilters")}
+                  Filtrlarni tozalash
                 </button>
               </div>
             )}
@@ -147,7 +187,17 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="fixed inset-y-0 right-0 w-[85vw] max-w-md bg-white z-50 lg:hidden shadow-2xl overflow-y-auto"
             >
-              <CategorySidebar isMobile={true} onClose={() => setMobileFiltersOpen(false)} />
+              <CategorySidebar 
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                priceRange={priceRange}
+                setPriceRange={setPriceRange}
+                selectedCategory={selectedCategory}
+                setSelectedCategory={setSelectedCategory}
+                onResetFilters={handleResetFilters}
+                isMobile={true} 
+                onClose={() => setMobileFiltersOpen(false)} 
+              />
             </motion.div>
           </>
         )}
