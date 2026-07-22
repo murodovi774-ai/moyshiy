@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ShieldCheck } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 export default function IntroVideo() {
   const [phase, setPhase] = useState<"hidden" | "video" | "glass" | "dissolving">("hidden");
@@ -23,10 +23,10 @@ export default function IntroVideo() {
     const hasSeen = localStorage.getItem("intro_seen");
     if (!hasSeen) {
       setPhase("video");
-      // On mobile, transition from brand video/intro to dirty glass after 2.5s
+      // Fallback timer only if video fails to emit onEnded after 15 seconds
       const timer = setTimeout(() => {
         setPhase((current) => (current === "video" ? "glass" : current));
-      }, isMobile ? 2500 : 5500);
+      }, 15000);
       return () => clearTimeout(timer);
     }
 
@@ -36,7 +36,7 @@ export default function IntroVideo() {
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
-  }, [isMobile]);
+  }, []);
 
   // Web Audio API Synthesizers
   const playWipeSound = () => {
@@ -349,49 +349,25 @@ export default function IntroVideo() {
             backdropFilter: phase === "glass" ? `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) blur(${blur}px)` : "none",
           }}
         >
-          {/* Phase 1: Desktop Video vs Mobile Animated Intro */}
+          {/* Preload Video Link */}
+          <link rel="preload" href="/intro.mp4" as="video" type="video/mp4" />
+
+          {/* Phase 1: Video Playback */}
           {phase === "video" && (
-            isMobile ? (
-              /* Ultra-Sleek Mobile Brand Intro (100% Mobile Ratio Fit) */
-              <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center p-6 text-white text-center">
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
-                  transition={{ duration: 1.2, ease: "easeOut" }}
-                  className="space-y-4 max-w-xs"
-                >
-                  <div className="w-16 h-16 rounded-3xl bg-primary text-white flex items-center justify-center font-black text-3xl mx-auto shadow-2xl shadow-primary/50">
-                    T
-                  </div>
-                  <h2 className="text-3xl font-black tracking-tight">
-                    TozaUy<span className="text-primary font-bold">.uz</span>
-                  </h2>
-                  <p className="text-xs text-gray-300 font-medium">
-                    Premium tozalash va maishiy vositalar platformasi
-                  </p>
-                  <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-1.5 rounded-full text-[11px] text-cyan-300 font-bold border border-white/15">
-                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                    <span>Tozalik sari qadam</span>
-                  </div>
-                </motion.div>
-              </div>
-            ) : (
-              /* Desktop Video Playback */
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                playsInline
-                preload="auto"
-                // @ts-ignore
-                webkit-playsinline="true"
-                onEnded={handleVideoEnded}
-                onError={handleVideoEnded}
-                className="absolute inset-0 w-full h-full object-cover"
-              >
-                <source src="/intro.mp4" type="video/mp4" />
-              </video>
-            )
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              preload="auto"
+              // @ts-ignore
+              webkit-playsinline="true"
+              onEnded={handleVideoEnded}
+              onError={handleVideoEnded}
+              className="absolute inset-0 w-full h-full object-cover"
+            >
+              <source src="/intro.mp4" type="video/mp4" />
+            </video>
           )}
 
           {/* Phase 2: Ultra Realistic Dirty Glass Surface & Responsive Top/Center Glass Card */}
