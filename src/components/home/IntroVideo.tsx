@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles } from "lucide-react";
 
 export default function IntroVideo() {
-  const [phase, setPhase] = useState<"hidden" | "video" | "glass" | "dissolving">("hidden");
+  // Start with 'video' phase by default for 0ms instant DOM rendering
+  const [phase, setPhase] = useState<"hidden" | "video" | "glass" | "dissolving">("video");
   const [isMobile, setIsMobile] = useState(false);
   const [wipePercent, setWipePercent] = useState(0);
   const [clothAngle, setClothAngle] = useState(0);
@@ -21,13 +21,14 @@ export default function IntroVideo() {
   useEffect(() => {
     // Check if intro has already been completed in localStorage
     const hasSeen = localStorage.getItem("intro_seen");
-    if (!hasSeen) {
-      setPhase("video");
-      // Fallback timer only if video fails to emit onEnded after 15 seconds
-      const timer = setTimeout(() => {
-        setPhase((current) => (current === "video" ? "glass" : current));
-      }, 15000);
-      return () => clearTimeout(timer);
+    if (hasSeen) {
+      setPhase("hidden");
+      return;
+    }
+
+    // Force instant play on mount
+    if (videoRef.current) {
+      videoRef.current.play().catch(() => {});
     }
 
     const checkMobile = () => {
@@ -336,14 +337,13 @@ export default function IntroVideo() {
     <AnimatePresence>
       {(phase === "video" || phase === "glass" || phase === "dissolving") && (
         <motion.div
-          initial={{ opacity: 1, scale: 1.02 }}
+          initial={{ opacity: 1 }}
           animate={{
             opacity: phase === "dissolving" ? 0 : 1,
-            scale: phase === "dissolving" ? 1 : 1,
           }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-0 z-[9999] bg-transparent overflow-hidden select-none"
+          transition={{ duration: 0.6 }}
+          className="fixed inset-0 z-[9999] bg-black overflow-hidden select-none"
           style={{
             cursor: phase === "glass" ? `url('${clothCursorSvg}') 24 24, crosshair` : "default",
             backdropFilter: phase === "glass" ? `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) blur(${blur}px)` : "none",
@@ -364,7 +364,7 @@ export default function IntroVideo() {
               webkit-playsinline="true"
               onEnded={handleVideoEnded}
               onError={handleVideoEnded}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover z-10"
             >
               <source src="/intro.mp4" type="video/mp4" />
             </video>
