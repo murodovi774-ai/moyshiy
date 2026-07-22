@@ -16,16 +16,17 @@ export default function IntroVideo() {
   const animFrameRef = useRef<number | null>(null);
   const isWipingRef = useRef(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     // Check if intro has already been completed in localStorage
     const hasSeen = localStorage.getItem("intro_seen");
     if (!hasSeen) {
       setPhase("video");
-      // Safety fallback: if video doesn't end within 5.5s, switch to dirty glass
+      // Safety fallback: if video doesn't trigger onEnded within 4s on mobile/iOS, switch to glass
       const timer = setTimeout(() => {
         setPhase((current) => (current === "video" ? "glass" : current));
-      }, 5500);
+      }, 4000);
       return () => clearTimeout(timer);
     }
 
@@ -46,7 +47,7 @@ export default function IntroVideo() {
       const ctx = audioCtxRef.current;
       if (ctx.state === "suspended") ctx.resume();
 
-      const bufferSize = ctx.sampleRate * 0.04;
+      const bufferSize = ctx.sampleRate * 0.03;
       const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
       const output = buffer.getChannelData(0);
       for (let i = 0; i < bufferSize; i++) {
@@ -62,8 +63,8 @@ export default function IntroVideo() {
       filter.Q.value = 3;
 
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.015, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+      gain.gain.setValueAtTime(0.012, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
 
       whiteNoise.connect(filter);
       filter.connect(gain);
@@ -86,17 +87,17 @@ export default function IntroVideo() {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5 note
-      osc.frequency.exponentialRampToValueAtTime(1046.5, ctx.currentTime + 0.3); // C6 note
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1046.5, ctx.currentTime + 0.3);
 
-      gain.gain.setValueAtTime(0.04, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      gain.gain.setValueAtTime(0.03, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
 
       osc.start();
-      osc.stop(ctx.currentTime + 0.6);
+      osc.stop(ctx.currentTime + 0.5);
     } catch (e) {}
   };
 
@@ -134,9 +135,10 @@ export default function IntroVideo() {
       ctx.fillStyle = edgeGrad;
       ctx.fillRect(0, 0, width, height);
 
-      // 3. Dense Dust Texture
-      ctx.fillStyle = "rgba(160, 148, 130, 0.4)";
-      for (let i = 0; i < 1200; i++) {
+      // 3. Dense Dust Texture (Lighter count on mobile for 60 FPS)
+      const dustCount = isMobile ? 350 : 1100;
+      ctx.fillStyle = "rgba(160, 148, 130, 0.38)";
+      for (let i = 0; i < dustCount; i++) {
         const dx = Math.random() * width;
         const dy = Math.random() * height;
         const dr = Math.random() * 2.5 + 0.5;
@@ -146,14 +148,15 @@ export default function IntroVideo() {
       }
 
       // 4. Fingerprints & Grease Smudges
-      for (let i = 0; i < 45; i++) {
+      const smudgeCount = isMobile ? 18 : 40;
+      for (let i = 0; i < smudgeCount; i++) {
         const fx = Math.random() * width;
         const fy = Math.random() * height;
-        const fr = Math.random() * 45 + 15;
+        const fr = Math.random() * 40 + 15;
 
         const fingerprintGrad = ctx.createRadialGradient(fx, fy, 4, fx, fy, fr);
-        fingerprintGrad.addColorStop(0, "rgba(180, 165, 145, 0.28)");
-        fingerprintGrad.addColorStop(0.6, "rgba(130, 115, 95, 0.14)");
+        fingerprintGrad.addColorStop(0, "rgba(180, 165, 145, 0.26)");
+        fingerprintGrad.addColorStop(0.6, "rgba(130, 115, 95, 0.12)");
         fingerprintGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
 
         ctx.fillStyle = fingerprintGrad;
@@ -163,22 +166,23 @@ export default function IntroVideo() {
       }
 
       // 5. Water Spots & Dried Rain Streaks
-      ctx.strokeStyle = "rgba(200, 190, 175, 0.22)";
-      ctx.lineWidth = 1.8;
-      for (let i = 0; i < 50; i++) {
+      const streakCount = isMobile ? 20 : 45;
+      ctx.strokeStyle = "rgba(200, 190, 175, 0.2)";
+      ctx.lineWidth = 1.6;
+      for (let i = 0; i < streakCount; i++) {
         const sx = Math.random() * width;
         const sy = Math.random() * height;
-        const len = Math.random() * 70 + 20;
+        const len = Math.random() * 60 + 20;
         ctx.beginPath();
         ctx.moveTo(sx, sy);
-        ctx.lineTo(sx + (Math.random() * 8 - 4), sy + len);
+        ctx.lineTo(sx + (Math.random() * 6 - 3), sy + len);
         ctx.stroke();
       }
     };
 
     drawRealisticDirtyGlass();
 
-    const brushRadius = isMobile ? 130 : 100;
+    const brushRadius = isMobile ? 120 : 95;
 
     // Erase dirt texture with soft feathered edge radial brush
     const eraseCircleAt = (x: number, y: number) => {
@@ -197,7 +201,7 @@ export default function IntroVideo() {
 
     const eraseLine = (x1: number, y1: number, x2: number, y2: number) => {
       const dist = Math.hypot(x2 - x1, y2 - y1);
-      const steps = Math.max(1, Math.floor(dist / 12));
+      const steps = Math.max(1, Math.floor(dist / 14));
       for (let i = 0; i <= steps; i++) {
         const tx = x1 + (x2 - x1) * (i / steps);
         const ty = y1 + (y2 - y1) * (i / steps);
@@ -205,10 +209,10 @@ export default function IntroVideo() {
       }
     };
 
-    // Calculate Real Cleaned Unique Surface Area (Separate Sampling for Mobile & Desktop)
+    // Fast 60 FPS Real Cleaned Surface Area Calculation
     const calculateRealCleanedArea = () => {
-      const gridCols = isMobile ? 30 : 45;
-      const gridRows = isMobile ? 40 : 30;
+      const gridCols = isMobile ? 20 : 40;
+      const gridRows = isMobile ? 25 : 30;
       const colStep = Math.floor(width / gridCols);
       const rowStep = Math.floor(height / gridRows);
       
@@ -297,8 +301,8 @@ export default function IntroVideo() {
     window.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-    window.addEventListener("touchstart", onTouchStart);
-    window.addEventListener("touchmove", onTouchMove);
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
     window.addEventListener("touchend", onTouchEnd);
 
     return () => {
@@ -363,18 +367,22 @@ export default function IntroVideo() {
           }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-0 z-[9999] bg-transparent overflow-hidden select-none"
+          className="fixed inset-0 z-[9999] bg-black md:bg-transparent overflow-hidden select-none"
           style={{
             cursor: phase === "glass" ? `url('${clothCursorSvg}') 24 24, crosshair` : "default",
             backdropFilter: phase === "glass" ? `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) blur(${blur}px)` : "none",
           }}
         >
-          {/* Phase 1: Video Playback */}
+          {/* Phase 1: Video Playback with iOS Safari Autoplay Attributes */}
           {phase === "video" && (
             <video
+              ref={videoRef}
               autoPlay
               muted
               playsInline
+              preload="auto"
+              // @ts-ignore
+              webkit-playsinline="true"
               onEnded={handleVideoEnded}
               onError={handleVideoEnded}
               className="absolute inset-0 w-full h-full object-cover"
@@ -389,19 +397,19 @@ export default function IntroVideo() {
               <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-10 touch-none" />
 
               {/* Apple / Dyson / Tesla Quality Glass Card */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none text-center">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none text-center px-4 w-full max-w-sm">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.92, y: 15 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   transition={{ duration: 0.6 }}
-                  className="bg-black/65 backdrop-blur-3xl border border-white/20 text-white px-8 py-6 rounded-[28px] shadow-[0_30px_70px_rgba(0,0,0,0.4)] max-w-sm w-full space-y-4"
+                  className="bg-black/75 backdrop-blur-3xl border border-white/20 text-white px-6 py-5 md:px-8 md:py-6 rounded-[28px] shadow-[0_30px_70px_rgba(0,0,0,0.4)] w-full space-y-3 md:space-y-4"
                 >
                   <div className="flex items-center justify-center gap-2">
-                    <span className="text-2xl">🧽</span>
-                    <h3 className="font-black text-xl tracking-tight text-white">Oynani arting</h3>
+                    <span className="text-xl md:text-2xl">🧽</span>
+                    <h3 className="font-black text-lg md:text-xl tracking-tight text-white">Oynani arting</h3>
                   </div>
 
-                  <p className="text-xs text-gray-300 font-medium leading-relaxed">
+                  <p className="text-[11px] md:text-xs text-gray-300 font-medium leading-relaxed">
                     Saytni ochish uchun oynaning 80% qismini tozalang.
                   </p>
 
