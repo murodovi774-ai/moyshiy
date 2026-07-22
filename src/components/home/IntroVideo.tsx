@@ -39,7 +39,7 @@ export default function IntroVideo() {
     setPhase("glass");
   };
 
-  // Initialize Canvas and Real Pixel Area Calculator
+  // Render Realistic Dirty Glass Texture (Dust, Fingerprints, Grease, Water Stains)
   useEffect(() => {
     if (phase !== "glass" || !canvasRef.current) return;
 
@@ -50,44 +50,64 @@ export default function IntroVideo() {
     const width = (canvas.width = window.innerWidth);
     const height = (canvas.height = window.innerHeight);
 
-    // Render Initial Frosted Glass Surface
-    const renderGlass = () => {
-      ctx.fillStyle = "rgba(232, 240, 250, 0.78)";
+    const drawDirtyGlassTexture = () => {
+      // 1. Dark ambient window shadow tint (NO WHITE OVERLAY)
+      ctx.fillStyle = "rgba(20, 26, 34, 0.45)";
       ctx.fillRect(0, 0, width, height);
 
-      // Micro condensation specs
-      ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-      for (let i = 0; i < 500; i++) {
-        const rx = Math.random() * width;
-        const ry = Math.random() * height;
-        ctx.beginPath();
-        ctx.arc(rx, ry, Math.random() * 3 + 1, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Water Droplets
-      for (let i = 0; i < 180; i++) {
+      // 2. Realistic Dust & Dirt Coating
+      ctx.fillStyle = "rgba(140, 130, 115, 0.35)";
+      for (let i = 0; i < 900; i++) {
         const dx = Math.random() * width;
         const dy = Math.random() * height;
-        const dr = Math.random() * 5 + 2;
-        ctx.fillStyle = "rgba(210, 230, 250, 0.65)";
+        const dr = Math.random() * 3 + 0.8;
         ctx.beginPath();
         ctx.arc(dx, dy, dr, 0, Math.PI * 2);
         ctx.fill();
       }
+
+      // 3. Grease Smudges & Fingerprint Marks
+      for (let i = 0; i < 35; i++) {
+        const fx = Math.random() * width;
+        const fy = Math.random() * height;
+        const fr = Math.random() * 40 + 20;
+
+        const fingerprintGrad = ctx.createRadialGradient(fx, fy, 5, fx, fy, fr);
+        fingerprintGrad.addColorStop(0, "rgba(160, 150, 135, 0.25)");
+        fingerprintGrad.addColorStop(0.5, "rgba(130, 120, 105, 0.15)");
+        fingerprintGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+        ctx.fillStyle = fingerprintGrad;
+        ctx.beginPath();
+        ctx.arc(fx, fy, fr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 4. Dried Water Stains & Rain Streaks
+      ctx.strokeStyle = "rgba(180, 175, 160, 0.2)";
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 40; i++) {
+        const sx = Math.random() * width;
+        const sy = Math.random() * height;
+        const len = Math.random() * 80 + 30;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + (Math.random() * 6 - 3), sy + len);
+        ctx.stroke();
+      }
     };
 
-    renderGlass();
+    drawDirtyGlassTexture();
 
-    // Brush Radius: Desktop 90px, Mobile 120px
-    const brushRadius = isMobile ? 120 : 90;
+    // Brush Radius: Desktop 95px, Mobile 125px
+    const brushRadius = isMobile ? 125 : 95;
 
-    // Soft Feathered Radial Gradient Eraser
+    // Soft Feathered Eraser Path
     const eraseCircleAt = (x: number, y: number) => {
       ctx.globalCompositeOperation = "destination-out";
       const grad = ctx.createRadialGradient(x, y, 0, x, y, brushRadius);
       grad.addColorStop(0, "rgba(0,0,0,1)");
-      grad.addColorStop(0.6, "rgba(0,0,0,0.85)");
+      grad.addColorStop(0.65, "rgba(0,0,0,0.85)");
       grad.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = grad;
       ctx.beginPath();
@@ -95,10 +115,9 @@ export default function IntroVideo() {
       ctx.fill();
     };
 
-    // Interpolate points between fast swipes to prevent gaps
     const eraseLine = (x1: number, y1: number, x2: number, y2: number) => {
       const dist = Math.hypot(x2 - x1, y2 - y1);
-      const steps = Math.max(1, Math.floor(dist / 15));
+      const steps = Math.max(1, Math.floor(dist / 14));
       for (let i = 0; i <= steps; i++) {
         const tx = x1 + (x2 - x1) * (i / steps);
         const ty = y1 + (y2 - y1) * (i / steps);
@@ -106,9 +125,8 @@ export default function IntroVideo() {
       }
     };
 
-    // Calculate REAL Cleaned Surface Area from Alpha Buffer Sampling
+    // Calculate Real Cleaned Unique Surface Area
     const calculateRealCleanedArea = () => {
-      // Sample a 50x50 grid across the canvas to calculate real non-overlapping transparent pixels
       const gridCols = 40;
       const gridRows = 30;
       const colStep = Math.floor(width / gridCols);
@@ -122,8 +140,7 @@ export default function IntroVideo() {
           const sampleX = Math.floor(c * colStep + colStep / 2);
           const sampleY = Math.floor(r * rowStep + rowStep / 2);
           const pixel = ctx.getImageData(sampleX, sampleY, 1, 1).data;
-          // If alpha channel is < 50, it is wiped clean
-          if (pixel[3] < 50) {
+          if (pixel[3] < 40) {
             transparentSamples++;
           }
         }
@@ -210,7 +227,7 @@ export default function IntroVideo() {
     };
   }, [phase, isMobile]);
 
-  // 80% Evaporation Transition
+  // 80% Threshold Auto Reveal & Dissolve
   const triggerEvaporation = () => {
     setPhase("evaporating");
     localStorage.setItem("intro_seen", "true");
@@ -222,7 +239,7 @@ export default function IntroVideo() {
     let alpha = 1;
     const animateEvaporation = () => {
       if (!ctx || !canvas) return;
-      alpha -= 0.04;
+      alpha -= 0.045;
 
       if (alpha <= 0) {
         setPhase("hidden");
@@ -231,7 +248,7 @@ export default function IntroVideo() {
       }
 
       ctx.globalCompositeOperation = "destination-out";
-      ctx.fillStyle = `rgba(0, 0, 0, 0.08)`;
+      ctx.fillStyle = `rgba(0, 0, 0, 0.09)`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       animFrameRef.current = requestAnimationFrame(animateEvaporation);
@@ -244,6 +261,12 @@ export default function IntroVideo() {
 
   const clothCursorSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 42 42"><g transform="rotate(${clothAngle} 21 21)"><rect x="6" y="8" width="30" height="26" rx="6" fill="%230284C7" fill-opacity="0.88" stroke="%23FFFFFF" stroke-width="2.5" stroke-dasharray="3 3"/><circle cx="21" cy="21" r="7" fill="%2338BDF8"/></g></svg>`;
 
+  // Dynamic filter calculating brightness, contrast, saturation, blur as glass is wiped
+  const brightness = 55 + (wipePercent * 0.45); // 55% -> 100%
+  const contrast = 70 + (wipePercent * 0.3); // 70% -> 100%
+  const saturation = 70 + (wipePercent * 0.3); // 70% -> 100%
+  const blur = Math.max(0, 5 - (wipePercent * 0.0625)); // 5px -> 0px
+
   return (
     <AnimatePresence>
       {(phase === "video" || phase === "glass" || phase === "evaporating") && (
@@ -251,13 +274,14 @@ export default function IntroVideo() {
           initial={{ opacity: 1 }}
           animate={{
             opacity: phase === "evaporating" ? 0 : 1,
-            scale: phase === "evaporating" ? 1.04 : 1,
+            scale: phase === "evaporating" ? 1.03 : 1,
           }}
           exit={{ opacity: 0 }}
           transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
           className="fixed inset-0 z-[9999] bg-transparent overflow-hidden select-none"
           style={{
             cursor: phase === "glass" ? `url('${clothCursorSvg}') 21 21, crosshair` : "default",
+            backdropFilter: phase === "glass" ? `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) blur(${blur}px)` : "none",
           }}
         >
           {/* Phase 1: Video Playback */}
@@ -274,36 +298,36 @@ export default function IntroVideo() {
             </video>
           )}
 
-          {/* Phase 2: Ultra-Realistic Frosted Glass Surface */}
+          {/* Phase 2: Ultra Realistic Dirty Glass Surface */}
           {(phase === "glass" || phase === "evaporating") && (
             <div className="relative w-full h-full">
               <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-10 touch-none" />
 
-              {/* Real Cleaned Surface Area Progress Badge */}
+              {/* Instructional Hint Overlay Badge */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none text-center">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9, y: 10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   transition={{ duration: 0.6 }}
-                  className="bg-white/85 backdrop-blur-2xl border border-white/70 text-foreground px-8 py-4.5 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex items-center gap-3"
+                  className="bg-black/60 backdrop-blur-2xl border border-white/30 text-white px-8 py-4.5 rounded-full shadow-[0_25px_60px_rgba(0,0,0,0.3)] flex items-center gap-3"
                 >
                   <span className="text-2xl">🧽</span>
-                  <span className="font-black text-lg md:text-xl tracking-tight text-foreground">
+                  <span className="font-black text-lg md:text-xl tracking-tight text-white">
                     Saytni ochish uchun oynani arting
                   </span>
                 </motion.div>
 
-                {/* Smooth 0% -> 15% -> 30% -> 45% -> 60% -> 75% -> 80% Progress Indicator */}
-                <div className="mt-3 inline-flex items-center gap-2 bg-white/50 backdrop-blur-md px-5 py-2 rounded-full text-xs font-extrabold text-slate-800 shadow-sm">
-                  <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-                  <span>{wipePercent}% haqiqiy yuzasi artildi (80% da avtomatik ochiladi)</span>
+                {/* Progress Indicator */}
+                <div className="mt-3 inline-flex items-center gap-2 bg-black/40 backdrop-blur-md px-5 py-2 rounded-full text-xs font-extrabold text-white/90 shadow-md">
+                  <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
+                  <span>{wipePercent}% chang tozalandi (80% da avtomatik ochiladi)</span>
                 </div>
               </div>
 
               {/* Skip Button */}
               <button
                 onClick={triggerEvaporation}
-                className="absolute bottom-8 right-8 z-30 bg-white/80 backdrop-blur-xl border border-white/50 text-foreground px-6 py-3 rounded-full text-xs font-bold hover:bg-white transition-all shadow-xl"
+                className="absolute bottom-8 right-8 z-30 bg-black/50 backdrop-blur-xl border border-white/30 text-white px-6 py-3 rounded-full text-xs font-bold hover:bg-black/80 transition-all shadow-xl"
               >
                 O'tkazib yuborish ➔
               </button>
