@@ -49,7 +49,24 @@ export default function CheckoutPage() {
 
   const subtotal = cartStore.getCartTotal();
 
-  // Auto calculate BTS delivery when region changes
+  const btsTariffs: Record<string, number> = {
+    "1": 24000,
+    "2": 24000,
+    "3": 26000,
+    "4": 26000,
+    "5": 26000,
+    "6": 24000,
+    "7": 30000,
+    "8": 26000,
+    "9": 26000,
+    "10": 28000,
+    "11": 32000,
+    "12": 26000,
+    "13": 24000,
+    "14": 28000,
+  };
+
+  // Auto calculate BTS delivery instantly when region changes
   useEffect(() => {
     if (!formData.region) {
       setDeliveryPrice(0);
@@ -60,30 +77,9 @@ export default function CheckoutPage() {
     const regObj = regions.find(r => r.id === formData.region);
     if (regObj) setSelectedRegionName(regObj.name);
 
-    async function calculateBTSDelivery() {
-      setIsCalculatingDelivery(true);
-      try {
-        const res = await fetch("/api/bts-calculate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ region: formData.region, subtotal }),
-        });
-
-        const data = await res.json();
-        if (data.success && data.price) {
-          setDeliveryPrice(data.price);
-        } else {
-          setDeliveryPrice(26000);
-        }
-      } catch (err) {
-        setDeliveryPrice(26000);
-      } finally {
-        setIsCalculatingDelivery(false);
-      }
-    }
-
-    calculateBTSDelivery();
-  }, [formData.region, subtotal]);
+    const price = btsTariffs[formData.region] || 26000;
+    setDeliveryPrice(price);
+  }, [formData.region]);
 
   if (!isMounted) return null;
 
