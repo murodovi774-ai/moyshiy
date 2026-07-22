@@ -23,10 +23,10 @@ export default function IntroVideo() {
     const hasSeen = localStorage.getItem("intro_seen");
     if (!hasSeen) {
       setPhase("video");
-      // Safety fallback: if video doesn't trigger onEnded within 4s on mobile/iOS, switch to glass
+      // Safety fallback: if video stalls for over 12 seconds, switch to glass
       const timer = setTimeout(() => {
         setPhase((current) => (current === "video" ? "glass" : current));
-      }, 4000);
+      }, 12000);
       return () => clearTimeout(timer);
     }
 
@@ -71,9 +71,7 @@ export default function IntroVideo() {
       gain.connect(ctx.destination);
 
       whiteNoise.start();
-    } catch (e) {
-      // Ignore if browser restricts autoplay audio
-    }
+    } catch (e) {}
   };
 
   const playChimeSound = () => {
@@ -105,7 +103,7 @@ export default function IntroVideo() {
     setPhase("glass");
   };
 
-  // Render Realistic Dirty House Window Glass Texture
+  // Render Light Realistic House Window Glass Texture (NO DARK PITCH BACKDROP)
   useEffect(() => {
     if (phase !== "glass" || !canvasRef.current) return;
 
@@ -117,8 +115,8 @@ export default function IntroVideo() {
     const height = (canvas.height = window.innerHeight);
 
     const drawRealisticDirtyGlass = () => {
-      // 1. Dark house window ambient tint (NO white fog / NO ice)
-      ctx.fillStyle = "rgba(18, 22, 28, 0.55)";
+      // 1. Light house window ambient tint (Transparent & realistic)
+      ctx.fillStyle = "rgba(220, 232, 245, 0.42)";
       ctx.fillRect(0, 0, width, height);
 
       // 2. Dirt accumulation near window edges
@@ -131,13 +129,13 @@ export default function IntroVideo() {
         Math.max(width, height) * 0.7
       );
       edgeGrad.addColorStop(0, "rgba(0,0,0,0)");
-      edgeGrad.addColorStop(1, "rgba(45, 38, 28, 0.45)");
+      edgeGrad.addColorStop(1, "rgba(100, 110, 125, 0.3)");
       ctx.fillStyle = edgeGrad;
       ctx.fillRect(0, 0, width, height);
 
       // 3. Dense Dust Texture (Lighter count on mobile for 60 FPS)
       const dustCount = isMobile ? 350 : 1100;
-      ctx.fillStyle = "rgba(160, 148, 130, 0.38)";
+      ctx.fillStyle = "rgba(160, 150, 135, 0.38)";
       for (let i = 0; i < dustCount; i++) {
         const dx = Math.random() * width;
         const dy = Math.random() * height;
@@ -155,8 +153,8 @@ export default function IntroVideo() {
         const fr = Math.random() * 40 + 15;
 
         const fingerprintGrad = ctx.createRadialGradient(fx, fy, 4, fx, fy, fr);
-        fingerprintGrad.addColorStop(0, "rgba(180, 165, 145, 0.26)");
-        fingerprintGrad.addColorStop(0.6, "rgba(130, 115, 95, 0.12)");
+        fingerprintGrad.addColorStop(0, "rgba(180, 170, 155, 0.28)");
+        fingerprintGrad.addColorStop(0.6, "rgba(140, 130, 115, 0.14)");
         fingerprintGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
 
         ctx.fillStyle = fingerprintGrad;
@@ -167,7 +165,7 @@ export default function IntroVideo() {
 
       // 5. Water Spots & Dried Rain Streaks
       const streakCount = isMobile ? 20 : 45;
-      ctx.strokeStyle = "rgba(200, 190, 175, 0.2)";
+      ctx.strokeStyle = "rgba(190, 185, 175, 0.25)";
       ctx.lineWidth = 1.6;
       for (let i = 0; i < streakCount; i++) {
         const sx = Math.random() * width;
@@ -351,10 +349,10 @@ export default function IntroVideo() {
   const clothCursorSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="rotate(${clothAngle} 24 24) scale(${isDragging ? 1.15 : 1})"><rect x="8" y="10" width="32" height="28" rx="7" fill="%230284C7" fill-opacity="0.9" stroke="%23FFFFFF" stroke-width="2.5" stroke-dasharray="3 3"/><circle cx="24" cy="24" r="8" fill="%2338BDF8"/></g></svg>`;
 
   // Dynamic filter calculating brightness, contrast, saturation, blur as glass is wiped
-  const brightness = 40 + (wipePercent * 0.6); // 40% -> 100%
-  const contrast = 70 + (wipePercent * 0.3); // 70% -> 100%
-  const saturation = 50 + (wipePercent * 0.5); // 50% -> 100%
-  const blur = Math.max(0, 10 - (wipePercent * 0.125)); // 10px -> 0px
+  const brightness = 50 + (wipePercent * 0.5); // 50% -> 100%
+  const contrast = 75 + (wipePercent * 0.25); // 75% -> 100%
+  const saturation = 60 + (wipePercent * 0.4); // 60% -> 100%
+  const blur = Math.max(0, 8 - (wipePercent * 0.1)); // 8px -> 0px
 
   return (
     <AnimatePresence>
@@ -367,7 +365,7 @@ export default function IntroVideo() {
           }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-0 z-[9999] bg-black md:bg-transparent overflow-hidden select-none"
+          className="fixed inset-0 z-[9999] bg-transparent overflow-hidden select-none"
           style={{
             cursor: phase === "glass" ? `url('${clothCursorSvg}') 24 24, crosshair` : "default",
             backdropFilter: phase === "glass" ? `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) blur(${blur}px)` : "none",
@@ -391,18 +389,18 @@ export default function IntroVideo() {
             </video>
           )}
 
-          {/* Phase 2: Ultra Realistic Dirty Glass Surface & Apple/Dyson Style Progress Card */}
+          {/* Phase 2: Ultra Realistic Dirty Glass Surface & Responsive Top/Center Glass Card */}
           {(phase === "glass" || phase === "dissolving") && (
             <div className="relative w-full h-full">
               <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-10 touch-none" />
 
               {/* Apple / Dyson / Tesla Quality Glass Card */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none text-center px-4 w-full max-w-sm">
+              <div className="absolute top-12 md:top-1/2 left-1/2 -translate-x-1/2 md:-translate-y-1/2 z-20 pointer-events-none text-center px-4 w-full max-w-sm">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.92, y: 15 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   transition={{ duration: 0.6 }}
-                  className="bg-black/75 backdrop-blur-3xl border border-white/20 text-white px-6 py-5 md:px-8 md:py-6 rounded-[28px] shadow-[0_30px_70px_rgba(0,0,0,0.4)] w-full space-y-3 md:space-y-4"
+                  className="bg-black/75 backdrop-blur-3xl border border-white/20 text-white px-6 py-4 md:px-8 md:py-6 rounded-[28px] shadow-[0_30px_70px_rgba(0,0,0,0.4)] w-full space-y-3 md:space-y-4"
                 >
                   <div className="flex items-center justify-center gap-2">
                     <span className="text-xl md:text-2xl">🧽</span>
