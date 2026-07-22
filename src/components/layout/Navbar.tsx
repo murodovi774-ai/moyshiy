@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { ShoppingBag, Search, Menu, X, User } from "lucide-react";
+import { ShoppingBag, Search, Menu, X } from "lucide-react";
 import LanguageSwitcher from "@/components/shared/LanguageSwitcher";
 import { useCartStore } from "@/store/useCartStore";
 import { useTranslations } from "next-intl";
@@ -41,18 +41,18 @@ export default function Navbar() {
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
           isScrolled
-            ? "bg-white/85 backdrop-blur-2xl border-b border-white/30 shadow-lg shadow-black/5 py-3"
-            : "bg-white/40 backdrop-blur-md py-4 border-b border-white/10"
+            ? "bg-white/90 backdrop-blur-2xl border-b border-white/30 shadow-md py-2.5"
+            : "bg-white/50 backdrop-blur-md py-3.5 border-b border-white/10"
         }`}
       >
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex items-center justify-between">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <span className="w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center font-black text-xl shadow-lg shadow-primary/30 group-hover:scale-105 transition-transform">
+            <Link href="/" className="flex items-center gap-2 group shrink-0">
+              <span className="w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl bg-primary text-white flex items-center justify-center font-black text-lg md:text-xl shadow-md shadow-primary/30">
                 T
               </span>
-              <span className="font-black text-2xl tracking-tight text-foreground">
+              <span className="font-black text-xl md:text-2xl tracking-tight text-foreground">
                 TozaUy<span className="text-primary font-bold">.uz</span>
               </span>
             </Link>
@@ -72,29 +72,29 @@ export default function Navbar() {
             </nav>
 
             {/* Header Right Actions */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
               <LanguageSwitcher />
 
-              {/* Live Search Trigger Button */}
+              {/* Desktop Search Button */}
               <button
                 onClick={() => setIsSearchOpen(true)}
                 aria-label="Qidiruv oynasini ochish"
-                className="p-2.5 rounded-full bg-white/60 border border-white/50 text-foreground hover:text-primary hover:bg-white transition-all shadow-sm flex items-center gap-2 touch-target"
+                className="hidden sm:flex p-2 md:p-2.5 rounded-full bg-white/70 border border-white/50 text-foreground hover:text-primary hover:bg-white transition-all shadow-sm items-center gap-2 touch-target"
                 title="Qidiruv (Ctrl+K)"
               >
-                <Search className="w-5 h-5" />
+                <Search className="w-4 h-4 md:w-5 md:h-5" />
                 <span className="hidden xl:inline text-xs font-semibold text-muted-foreground">Ctrl+K</span>
               </button>
 
-              {/* Cart Drawer Trigger Button */}
+              {/* Desktop Cart Button */}
               <button
                 onClick={() => setIsMiniCartOpen(true)}
                 aria-label="Savatni ochish"
-                className="relative p-2.5 rounded-full bg-white/60 border border-white/50 text-foreground hover:text-primary hover:bg-white transition-all shadow-sm touch-target"
+                className="hidden sm:flex relative p-2 md:p-2.5 rounded-full bg-white/70 border border-white/50 text-foreground hover:text-primary hover:bg-white transition-all shadow-sm touch-target"
               >
-                <ShoppingBag className="w-5 h-5" />
+                <ShoppingBag className="w-4 h-4 md:w-5 md:h-5" />
                 {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-primary text-white text-[11px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-pulse">
+                  <span className="absolute -top-1 -right-1 bg-primary text-white text-[10px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-md animate-pulse">
                     {cartCount}
                   </span>
                 )}
@@ -104,7 +104,7 @@ export default function Navbar() {
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 aria-label="Mobil menyuni ochish"
-                className="lg:hidden p-2.5 rounded-full bg-white/60 border border-white/50 text-foreground hover:bg-white transition-all touch-target"
+                className="lg:hidden p-2 rounded-xl bg-white/70 border border-white/50 text-foreground hover:bg-white transition-all touch-target"
               >
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
@@ -114,14 +114,14 @@ export default function Navbar() {
 
         {/* Mobile Slide-down Menu */}
         {mobileMenuOpen && (
-          <div className="lg:hidden bg-white/95 backdrop-blur-2xl border-b border-border p-6 mt-3 shadow-2xl space-y-4 animate-in slide-in-from-top-5 duration-300">
-            <nav className="flex flex-col space-y-3">
+          <div className="lg:hidden bg-white/95 backdrop-blur-2xl border-b border-border p-6 mt-2 shadow-2xl space-y-3 animate-in slide-in-from-top-4 duration-300">
+            <nav className="flex flex-col space-y-2">
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="font-bold text-lg text-foreground hover:text-primary transition-colors py-2 border-b border-border/40"
+                  className="font-bold text-base text-foreground hover:text-primary transition-colors py-2 border-b border-border/40"
                 >
                   {link.name}
                 </Link>
