@@ -244,10 +244,15 @@ export default function CheckoutPage() {
 
                 {/* Delivery Notice */}
                 {formData.region && deliveryPrice > 0 && (
-                  <p className="text-xs text-emerald-800 bg-emerald-50 p-2.5 rounded-xl font-medium border border-emerald-200 flex items-center gap-1.5">
-                    <Truck className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>BTS Express tarifi (Toshkent ➔ {selectedRegionName}): {Number(deliveryPrice).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} UZS</span>
-                  </p>
+                  <div className="space-y-1.5 bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-xs text-emerald-900 font-medium">
+                    <p className="flex items-center gap-1.5 font-bold text-emerald-800">
+                      <Truck className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>BTS Express tarifi (Toshkent ➔ {selectedRegionName}): {Number(deliveryPrice).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} UZS</span>
+                    </p>
+                    <p className="text-[11px] text-emerald-700 italic border-t border-emerald-200/60 pt-1.5">
+                      ℹ️ Pochta narxi yuk og'irligiga qarab o'zgaradi (Bu narx 1 kg uchun kiritilgan).
+                    </p>
+                  </div>
                 )}
               </div>
 

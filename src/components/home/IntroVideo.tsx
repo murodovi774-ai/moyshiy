@@ -5,22 +5,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
 
 export default function IntroVideo() {
-  const [phase, setPhase] = useState<"hidden" | "video" | "glass" | "evaporating">("hidden");
+  const [phase, setPhase] = useState<"hidden" | "video" | "glass" | "dissolving">("hidden");
   const [isMobile, setIsMobile] = useState(false);
   const [wipePercent, setWipePercent] = useState(0);
   const [clothAngle, setClothAngle] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const isWipingRef = useRef(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
-    // Check if intro has already been seen in localStorage
+    // Check if intro has already been completed in localStorage
     const hasSeen = localStorage.getItem("intro_seen");
     if (!hasSeen) {
       setPhase("video");
-      // Safety fallback timeout
+      // Safety fallback: if video doesn't end within 5.5s, switch to dirty glass
       const timer = setTimeout(() => {
         setPhase((current) => (current === "video" ? "glass" : current));
       }, 5500);
@@ -35,11 +37,74 @@ export default function IntroVideo() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Web Audio API Synthesizers (Subtle Wipe Friction Sound & Completion Chime)
+  const playWipeSound = () => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") ctx.resume();
+
+      const bufferSize = ctx.sampleRate * 0.04;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+
+      const whiteNoise = ctx.createBufferSource();
+      whiteNoise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 800;
+      filter.Q.value = 3;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.015, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+
+      whiteNoise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      whiteNoise.start();
+    } catch (e) {
+      // Ignore if browser restricts autoplay audio
+    }
+  };
+
+  const playChimeSound = () => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") ctx.resume();
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5 note
+      osc.frequency.exponentialRampToValueAtTime(1046.5, ctx.currentTime + 0.3); // C6 note
+
+      gain.gain.setValueAtTime(0.04, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.6);
+    } catch (e) {}
+  };
+
   const handleVideoEnded = () => {
     setPhase("glass");
   };
 
-  // Render Realistic Dirty Glass Texture (Dust, Fingerprints, Grease, Water Stains)
+  // Render Realistic Dirty House Window Glass Texture
   useEffect(() => {
     if (phase !== "glass" || !canvasRef.current) return;
 
@@ -50,31 +115,45 @@ export default function IntroVideo() {
     const width = (canvas.width = window.innerWidth);
     const height = (canvas.height = window.innerHeight);
 
-    const drawDirtyGlassTexture = () => {
-      // 1. Dark ambient window shadow tint (NO WHITE OVERLAY)
-      ctx.fillStyle = "rgba(20, 26, 34, 0.45)";
+    const drawRealisticDirtyGlass = () => {
+      // 1. Dark house window ambient tint (NO white fog / NO ice)
+      ctx.fillStyle = "rgba(18, 22, 28, 0.55)";
       ctx.fillRect(0, 0, width, height);
 
-      // 2. Realistic Dust & Dirt Coating
-      ctx.fillStyle = "rgba(140, 130, 115, 0.35)";
-      for (let i = 0; i < 900; i++) {
+      // 2. Dirt accumulation near window edges
+      const edgeGrad = ctx.createRadialGradient(
+        width / 2,
+        height / 2,
+        Math.min(width, height) * 0.3,
+        width / 2,
+        height / 2,
+        Math.max(width, height) * 0.7
+      );
+      edgeGrad.addColorStop(0, "rgba(0,0,0,0)");
+      edgeGrad.addColorStop(1, "rgba(45, 38, 28, 0.45)");
+      ctx.fillStyle = edgeGrad;
+      ctx.fillRect(0, 0, width, height);
+
+      // 3. Dense Dust Texture
+      ctx.fillStyle = "rgba(160, 148, 130, 0.4)";
+      for (let i = 0; i < 1200; i++) {
         const dx = Math.random() * width;
         const dy = Math.random() * height;
-        const dr = Math.random() * 3 + 0.8;
+        const dr = Math.random() * 2.5 + 0.5;
         ctx.beginPath();
         ctx.arc(dx, dy, dr, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // 3. Grease Smudges & Fingerprint Marks
-      for (let i = 0; i < 35; i++) {
+      // 4. Fingerprints & Grease Smudges
+      for (let i = 0; i < 45; i++) {
         const fx = Math.random() * width;
         const fy = Math.random() * height;
-        const fr = Math.random() * 40 + 20;
+        const fr = Math.random() * 45 + 15;
 
-        const fingerprintGrad = ctx.createRadialGradient(fx, fy, 5, fx, fy, fr);
-        fingerprintGrad.addColorStop(0, "rgba(160, 150, 135, 0.25)");
-        fingerprintGrad.addColorStop(0.5, "rgba(130, 120, 105, 0.15)");
+        const fingerprintGrad = ctx.createRadialGradient(fx, fy, 4, fx, fy, fr);
+        fingerprintGrad.addColorStop(0, "rgba(180, 165, 145, 0.28)");
+        fingerprintGrad.addColorStop(0.6, "rgba(130, 115, 95, 0.14)");
         fingerprintGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
 
         ctx.fillStyle = fingerprintGrad;
@@ -83,41 +162,42 @@ export default function IntroVideo() {
         ctx.fill();
       }
 
-      // 4. Dried Water Stains & Rain Streaks
-      ctx.strokeStyle = "rgba(180, 175, 160, 0.2)";
-      ctx.lineWidth = 1.5;
-      for (let i = 0; i < 40; i++) {
+      // 5. Water Spots & Dried Rain Streaks
+      ctx.strokeStyle = "rgba(200, 190, 175, 0.22)";
+      ctx.lineWidth = 1.8;
+      for (let i = 0; i < 50; i++) {
         const sx = Math.random() * width;
         const sy = Math.random() * height;
-        const len = Math.random() * 80 + 30;
+        const len = Math.random() * 70 + 20;
         ctx.beginPath();
         ctx.moveTo(sx, sy);
-        ctx.lineTo(sx + (Math.random() * 6 - 3), sy + len);
+        ctx.lineTo(sx + (Math.random() * 8 - 4), sy + len);
         ctx.stroke();
       }
     };
 
-    drawDirtyGlassTexture();
+    drawRealisticDirtyGlass();
 
-    // Brush Radius: Desktop 95px, Mobile 125px
-    const brushRadius = isMobile ? 125 : 95;
+    const brushRadius = isMobile ? 130 : 100;
 
-    // Soft Feathered Eraser Path
+    // Erase dirt texture with soft feathered edge radial brush
     const eraseCircleAt = (x: number, y: number) => {
       ctx.globalCompositeOperation = "destination-out";
       const grad = ctx.createRadialGradient(x, y, 0, x, y, brushRadius);
       grad.addColorStop(0, "rgba(0,0,0,1)");
-      grad.addColorStop(0.65, "rgba(0,0,0,0.85)");
+      grad.addColorStop(0.7, "rgba(0,0,0,0.85)");
       grad.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.arc(x, y, brushRadius, 0, Math.PI * 2);
       ctx.fill();
+
+      playWipeSound();
     };
 
     const eraseLine = (x1: number, y1: number, x2: number, y2: number) => {
       const dist = Math.hypot(x2 - x1, y2 - y1);
-      const steps = Math.max(1, Math.floor(dist / 14));
+      const steps = Math.max(1, Math.floor(dist / 12));
       for (let i = 0; i <= steps; i++) {
         const tx = x1 + (x2 - x1) * (i / steps);
         const ty = y1 + (y2 - y1) * (i / steps);
@@ -125,10 +205,10 @@ export default function IntroVideo() {
       }
     };
 
-    // Calculate Real Cleaned Unique Surface Area
+    // Calculate Real Cleaned Unique Surface Area (Separate Sampling for Mobile & Desktop)
     const calculateRealCleanedArea = () => {
-      const gridCols = 40;
-      const gridRows = 30;
+      const gridCols = isMobile ? 30 : 45;
+      const gridRows = isMobile ? 40 : 30;
       const colStep = Math.floor(width / gridCols);
       const rowStep = Math.floor(height / gridRows);
       
@@ -140,7 +220,7 @@ export default function IntroVideo() {
           const sampleX = Math.floor(c * colStep + colStep / 2);
           const sampleY = Math.floor(r * rowStep + rowStep / 2);
           const pixel = ctx.getImageData(sampleX, sampleY, 1, 1).data;
-          if (pixel[3] < 40) {
+          if (pixel[3] < 45) {
             transparentSamples++;
           }
         }
@@ -175,6 +255,7 @@ export default function IntroVideo() {
 
     const onMouseDown = (e: MouseEvent) => {
       isWipingRef.current = true;
+      setIsDragging(true);
       lastPointRef.current = { x: e.clientX, y: e.clientY };
       eraseCircleAt(e.clientX, e.clientY);
       calculateRealCleanedArea();
@@ -186,11 +267,13 @@ export default function IntroVideo() {
 
     const onMouseUp = () => {
       isWipingRef.current = false;
+      setIsDragging(false);
       lastPointRef.current = null;
     };
 
     const onTouchStart = (e: TouchEvent) => {
       isWipingRef.current = true;
+      setIsDragging(true);
       if (e.touches[0]) {
         const t = e.touches[0];
         lastPointRef.current = { x: t.clientX, y: t.clientY };
@@ -207,6 +290,7 @@ export default function IntroVideo() {
 
     const onTouchEnd = () => {
       isWipingRef.current = false;
+      setIsDragging(false);
       lastPointRef.current = null;
     };
 
@@ -227,10 +311,11 @@ export default function IntroVideo() {
     };
   }, [phase, isMobile]);
 
-  // 80% Threshold Auto Reveal & Dissolve
+  // 80% Threshold Evaporation & Unlock Chime
   const triggerEvaporation = () => {
-    setPhase("evaporating");
+    setPhase("dissolving");
     localStorage.setItem("intro_seen", "true");
+    playChimeSound();
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -239,7 +324,7 @@ export default function IntroVideo() {
     let alpha = 1;
     const animateEvaporation = () => {
       if (!ctx || !canvas) return;
-      alpha -= 0.045;
+      alpha -= 0.05;
 
       if (alpha <= 0) {
         setPhase("hidden");
@@ -248,7 +333,7 @@ export default function IntroVideo() {
       }
 
       ctx.globalCompositeOperation = "destination-out";
-      ctx.fillStyle = `rgba(0, 0, 0, 0.09)`;
+      ctx.fillStyle = `rgba(0, 0, 0, 0.1)`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       animFrameRef.current = requestAnimationFrame(animateEvaporation);
@@ -259,28 +344,28 @@ export default function IntroVideo() {
 
   if (phase === "hidden") return null;
 
-  const clothCursorSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 42 42"><g transform="rotate(${clothAngle} 21 21)"><rect x="6" y="8" width="30" height="26" rx="6" fill="%230284C7" fill-opacity="0.88" stroke="%23FFFFFF" stroke-width="2.5" stroke-dasharray="3 3"/><circle cx="21" cy="21" r="7" fill="%2338BDF8"/></g></svg>`;
+  const clothCursorSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="rotate(${clothAngle} 24 24) scale(${isDragging ? 1.15 : 1})"><rect x="8" y="10" width="32" height="28" rx="7" fill="%230284C7" fill-opacity="0.9" stroke="%23FFFFFF" stroke-width="2.5" stroke-dasharray="3 3"/><circle cx="24" cy="24" r="8" fill="%2338BDF8"/></g></svg>`;
 
   // Dynamic filter calculating brightness, contrast, saturation, blur as glass is wiped
-  const brightness = 55 + (wipePercent * 0.45); // 55% -> 100%
+  const brightness = 40 + (wipePercent * 0.6); // 40% -> 100%
   const contrast = 70 + (wipePercent * 0.3); // 70% -> 100%
-  const saturation = 70 + (wipePercent * 0.3); // 70% -> 100%
-  const blur = Math.max(0, 5 - (wipePercent * 0.0625)); // 5px -> 0px
+  const saturation = 50 + (wipePercent * 0.5); // 50% -> 100%
+  const blur = Math.max(0, 10 - (wipePercent * 0.125)); // 10px -> 0px
 
   return (
     <AnimatePresence>
-      {(phase === "video" || phase === "glass" || phase === "evaporating") && (
+      {(phase === "video" || phase === "glass" || phase === "dissolving") && (
         <motion.div
-          initial={{ opacity: 1 }}
+          initial={{ opacity: 1, scale: 1.02 }}
           animate={{
-            opacity: phase === "evaporating" ? 0 : 1,
-            scale: phase === "evaporating" ? 1.03 : 1,
+            opacity: phase === "dissolving" ? 0 : 1,
+            scale: phase === "dissolving" ? 1 : 1,
           }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="fixed inset-0 z-[9999] bg-transparent overflow-hidden select-none"
           style={{
-            cursor: phase === "glass" ? `url('${clothCursorSvg}') 21 21, crosshair` : "default",
+            cursor: phase === "glass" ? `url('${clothCursorSvg}') 24 24, crosshair` : "default",
             backdropFilter: phase === "glass" ? `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) blur(${blur}px)` : "none",
           }}
         >
@@ -298,39 +383,45 @@ export default function IntroVideo() {
             </video>
           )}
 
-          {/* Phase 2: Ultra Realistic Dirty Glass Surface */}
-          {(phase === "glass" || phase === "evaporating") && (
+          {/* Phase 2: Ultra Realistic Dirty Glass Surface & Apple/Dyson Style Progress Card */}
+          {(phase === "glass" || phase === "dissolving") && (
             <div className="relative w-full h-full">
               <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-10 touch-none" />
 
-              {/* Instructional Hint Overlay Badge */}
+              {/* Apple / Dyson / Tesla Quality Glass Card */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none text-center">
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                  initial={{ opacity: 0, scale: 0.92, y: 15 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   transition={{ duration: 0.6 }}
-                  className="bg-black/60 backdrop-blur-2xl border border-white/30 text-white px-8 py-4.5 rounded-full shadow-[0_25px_60px_rgba(0,0,0,0.3)] flex items-center gap-3"
+                  className="bg-black/65 backdrop-blur-3xl border border-white/20 text-white px-8 py-6 rounded-[28px] shadow-[0_30px_70px_rgba(0,0,0,0.4)] max-w-sm w-full space-y-4"
                 >
-                  <span className="text-2xl">🧽</span>
-                  <span className="font-black text-lg md:text-xl tracking-tight text-white">
-                    Saytni ochish uchun oynani arting
-                  </span>
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-2xl">🧽</span>
+                    <h3 className="font-black text-xl tracking-tight text-white">Oynani arting</h3>
+                  </div>
+
+                  <p className="text-xs text-gray-300 font-medium leading-relaxed">
+                    Saytni ochish uchun oynaning 80% qismini tozalang.
+                  </p>
+
+                  {/* Animated Progress Bar */}
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex justify-between text-xs font-bold text-gray-300">
+                      <span>Tozalik darajasi</span>
+                      <span className="text-primary font-black">{wipePercent}%</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/10">
+                      <motion.div
+                        className="h-full bg-gradient-to-r from-cyan-500 to-primary rounded-full shadow-[0_0_12px_rgba(2,132,199,0.8)]"
+                        initial={{ width: "0%" }}
+                        animate={{ width: `${Math.min(wipePercent, 80)}%` }}
+                        transition={{ duration: 0.2 }}
+                      />
+                    </div>
+                  </div>
                 </motion.div>
-
-                {/* Progress Indicator */}
-                <div className="mt-3 inline-flex items-center gap-2 bg-black/40 backdrop-blur-md px-5 py-2 rounded-full text-xs font-extrabold text-white/90 shadow-md">
-                  <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
-                  <span>{wipePercent}% chang tozalandi (80% da avtomatik ochiladi)</span>
-                </div>
               </div>
-
-              {/* Skip Button */}
-              <button
-                onClick={triggerEvaporation}
-                className="absolute bottom-8 right-8 z-30 bg-black/50 backdrop-blur-xl border border-white/30 text-white px-6 py-3 rounded-full text-xs font-bold hover:bg-black/80 transition-all shadow-xl"
-              >
-                O'tkazib yuborish ➔
-              </button>
             </div>
           )}
         </motion.div>
